@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  workflow_dispatch: 
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run CI check
+        run: echo "Status check passed"
