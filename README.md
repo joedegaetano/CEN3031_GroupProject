@@ -1,6 +1,15 @@
 # CEN3031 Group Project
 
-Minimal Python + Streamlit starter environment.
+Minimal Python + Streamlit + SQLite starter environment.
+
+## What is included
+
+- `app.py`: Streamlit frontend for creating and viewing records
+- `database.py`: SQLite helper functions for initializing and managing data
+- `smoke_test.py`: quick backend and template validation
+- `requirements.txt`: Python dependencies for the project
+
+SQLite is included with Python, so no extra database package is required.
 
 ## Setup
 
@@ -18,8 +27,17 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+The first time you save a record, the app will create a local SQLite database file named `app.db` in the project directory.
+
 ## Run the smoke test
 
 ```zsh
 python smoke_test.py
 ```
+
+## Suggested next steps
+
+- Add more tables and database functions in `database.py`
+- Replace the starter form with your real application fields
+- Split the UI into additional Streamlit pages as the app grows
+
