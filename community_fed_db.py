@@ -59,7 +59,16 @@ def init_db() -> None:
             );
             """
         )
-
+        #Add created_by column to events table
+        columns = conn.execute("PRAGMA table_info(events);").fetchall()
+        column_names = [col["name"] for col in columns]
+        if "created_by" not in column_names:
+            conn.execute(
+                """
+                ALTER TABLE events 
+                ADD COLUMN created_by INTEGER REFERENCES users(id);
+                """
+            )
         conn.commit()
     finally:
         conn.close()
