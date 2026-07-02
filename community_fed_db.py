@@ -241,3 +241,50 @@ def get_upcoming_events(
         return conn.execute(sql, tuple(params)).fetchall()
     finally:
         conn.close()
+
+def create_event(
+    *,
+    title: str,
+    organizer: str,
+    start_at: str,
+    end_at: Optional[str] = None,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+    what_to_expect: str = "",
+    what_to_bring: str = "",
+    registration_notes: str = "",
+) -> None:
+    title = title.strip()
+    organizer = organizer.strip()
+    address = address.strip()
+    city = city.strip()
+    state = state.strip()
+    zip_code = zip_code.strip()
+    what_to_expect = what_to_expect.strip()
+    what_to_bring = what_to_bring.strip()
+    registration_notes = registration_notes.strip()
+
+    if not title:
+        raise ValueError("Event title is required.")
+    if not start_at:
+        raise ValueError("Start date/time is required.")
+
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO events
+            (title, organizer, start_at, end_at, address, city, state, zip_code,
+             what_to_expect, what_to_bring, registration_notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                title, organizer, start_at, end_at, address, city, state, zip_code,
+                what_to_expect, what_to_bring, registration_notes,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
