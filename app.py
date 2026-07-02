@@ -55,7 +55,12 @@ def render_event_card(e) -> None:
             st.write(f"**What to bring:** {e['what_to_bring']}")
         if e["registration_notes"]:
             st.info(e["registration_notes"])
-
+        # Show edit button for logged in users
+        if st.session_state.user:
+            if st.button("Edit Event", key=f"edit_{e['id']}"):
+                st.session_state.selected_event = e["id"]
+                set_page("Modify Event")
+                st.rerun()
 
 def page_home() -> None:
     # Hero
