@@ -241,3 +241,18 @@ def get_upcoming_events(
         return conn.execute(sql, tuple(params)).fetchall()
     finally:
         conn.close()
+
+def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT *
+            FROM events
+            WHERE id = ?
+            LIMIT 1;
+            """,
+            (int(event_id),),
+        ).fetchone()
+    finally:
+        conn.close()        
