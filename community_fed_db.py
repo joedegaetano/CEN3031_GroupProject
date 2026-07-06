@@ -59,7 +59,16 @@ def init_db() -> None:
             );
             """
         )
-
+        #Add created_by column to events table
+        columns = conn.execute("PRAGMA table_info(events);").fetchall()
+        column_names = [col["name"] for col in columns]
+        if "created_by" not in column_names:
+            conn.execute(
+                """
+                ALTER TABLE events 
+                ADD COLUMN created_by INTEGER REFERENCES users(id);
+                """
+            )
         conn.commit()
     finally:
         conn.close()
@@ -242,6 +251,7 @@ def get_upcoming_events(
     finally:
         conn.close()
 
+
 def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
     conn = get_conn()
     try:
@@ -250,6 +260,68 @@ def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
             SELECT *
             FROM events
             WHERE id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def update_event(
+    event_id: int,
+    title: str,
+    organizer: str,
+    start_at: str,
+    end_at: str,
+    address: str,
+    city: str,
+    state: str,
+    zip_code: str,
+    what_to_expect: str,
+    what_to_bring: str,
+    registration_notes: str,
+) -> None:
+
+    conn = get_conn()
+
+    try:
+        conn.execute(
+            """
+            UPDATE events
+            SET
+                title=?,
+                organizer=?,
+                start_at=?,
+                end_at=?,
+                address=?,
+                city=?,
+                state=?,
+                zip_code=?,
+                what_to_expect=?,
+                what_to_bring=?,
+                registration_notes=?
+            WHERE id=?;
+            """,
+            (
+                title,
+                organizer,
+                start_at,
+                end_at,
+                address,
+                city,
+                state,
+                zip_code,
+                what_to_expect,
+                what_to_bring,
+                registration_notes,
+                event_id,
+            ),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
             LIMIT 1;
             """,
             (int(event_id),),

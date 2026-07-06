@@ -57,6 +57,12 @@ def render_event_card(e) -> None:
 
         if e["registration_notes"]:
             st.info(e["registration_notes"])
+        # Show edit button for logged in users
+        if st.session_state.user:
+            if st.button("Edit Event", key=f"edit_{e['id']}"):
+                st.session_state.selected_event = e["id"]
+                set_page("Modify Event")
+                st.rerun()
 
         if st.button("View event details", key=f"view_event_{e['id']}", use_container_width=True):
             st.session_state.selected_event_id = e["id"]
