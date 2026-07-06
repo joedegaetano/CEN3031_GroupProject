@@ -250,3 +250,75 @@ def get_upcoming_events(
         return conn.execute(sql, tuple(params)).fetchall()
     finally:
         conn.close()
+
+
+def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT *
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def update_event(
+    event_id: int,
+    title: str,
+    organizer: str,
+    start_at: str,
+    end_at: str,
+    address: str,
+    city: str,
+    state: str,
+    zip_code: str,
+    what_to_expect: str,
+    what_to_bring: str,
+    registration_notes: str,
+) -> None:
+
+    conn = get_conn()
+
+    try:
+        conn.execute(
+            """
+            UPDATE events
+            SET
+                title=?,
+                organizer=?,
+                start_at=?,
+                end_at=?,
+                address=?,
+                city=?,
+                state=?,
+                zip_code=?,
+                what_to_expect=?,
+                what_to_bring=?,
+                registration_notes=?
+            WHERE id=?;
+            """,
+            (
+                title,
+                organizer,
+                start_at,
+                end_at,
+                address,
+                city,
+                state,
+                zip_code,
+                what_to_expect,
+                what_to_bring,
+                registration_notes,
+                event_id,
+            ),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
