@@ -322,3 +322,9 @@ def update_event(
 
     finally:
         conn.close()
+            LIMIT 1;
+            """,
+            (int(event_id),),
+        ).fetchone()
+    finally:
+        conn.close()        
