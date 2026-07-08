@@ -268,20 +268,19 @@ def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
 
 
 def update_event(
-    event_id: int,
-    title: str,
-    organizer: str,
-    start_at: str,
-    end_at: str,
-    address: str,
-    city: str,
-    state: str,
-    zip_code: str,
-    what_to_expect: str,
-    what_to_bring: str,
-    registration_notes: str,
+        event_id: int,
+        title: str,
+        organizer: str,
+        start_at: str,
+        end_at: str,
+        address: str,
+        city: str,
+        state: str,
+        zip_code: str,
+        what_to_expect: str,
+        what_to_bring: str,
+        registration_notes: str,
 ) -> None:
-
     conn = get_conn()
 
     try:
@@ -289,18 +288,18 @@ def update_event(
             """
             UPDATE events
             SET
-                title=?,
-                organizer=?,
-                start_at=?,
-                end_at=?,
-                address=?,
-                city=?,
-                state=?,
-                zip_code=?,
-                what_to_expect=?,
-                what_to_bring=?,
-                registration_notes=?
-            WHERE id=?;
+                title = ?,
+                organizer = ?,
+                start_at = ?,
+                end_at = ?,
+                address = ?,
+                city = ?,
+                state = ?,
+                zip_code = ?,
+                what_to_expect = ?,
+                what_to_bring = ?,
+                registration_notes = ?
+            WHERE id = ?;
             """,
             (
                 title,
@@ -317,14 +316,6 @@ def update_event(
                 event_id,
             ),
         )
-
         conn.commit()
-
     finally:
         conn.close()
-            LIMIT 1;
-            """,
-            (int(event_id),),
-        ).fetchone()
-    finally:
-        conn.close()        
