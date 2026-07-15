@@ -2,7 +2,13 @@
 from __future__ import annotations
 
 import streamlit as st
-from community_fed_db import init_db, create_user, verify_login, get_upcoming_events, create_event
+from community_fed_db import (
+    init_db,
+    create_user,
+    verify_login,
+    get_upcoming_events,
+    get_event_by_id,
+)
 
 APP_NAME = "Community Fed"
 
@@ -51,10 +57,23 @@ def render_event_card(e) -> None:
 
         if e["what_to_expect"]:
             st.write(f"**What to expect:** {e['what_to_expect']}")
+
         if e["what_to_bring"]:
             st.write(f"**What to bring:** {e['what_to_bring']}")
+
         if e["registration_notes"]:
             st.info(e["registration_notes"])
+        # Show edit button for logged in users
+        if st.session_state.user:
+            if st.button("Edit Event", key=f"edit_{e['id']}"):
+                st.session_state.selected_event = e["id"]
+                set_page("Modify Event")
+                st.rerun()
+
+        if st.button("View event details", key=f"view_event_{e['id']}", use_container_width=True):
+            st.session_state.selected_event_id = e["id"]
+            set_page("View Event")
+            st.rerun()
 
 
 def page_home() -> None:
@@ -122,6 +141,79 @@ def page_home() -> None:
         "If requirements are listed, you’ll see them on the event card."
     )
     st.caption("We only use your location to show nearby events. We don’t require an account to browse.")
+
+def page_view_event() -> None:
+    event_id = st.session_state.get("selected_event_id")
+
+    if not event_id:
+        st.error("No event selected.")
+        if st.button("Back to events", key="back_no_event_selected"):
+            set_page("Home")
+            st.rerun()
+        return
+
+    event = get_event_by_id(event_id)
+
+    if not event:
+        st.error("This event could not be found.")
+        if st.button("Back to events", key="back_from_event_not_found"):
+            set_page("Home")
+            st.rerun()
+        return
+
+    if st.button("← Back to events", key="back_to_events_from_view"):
+        set_page("Home")
+        st.rerun()
+
+    st.header(event["title"])
+
+    if event["organizer"]:
+        st.caption(f"Organized by {event['organizer']}")
+
+    st.divider()
+
+    with st.container(border=True):
+        st.subheader("Event Details")
+
+        st.write(
+            f"**Date and time:** {event['start_at']}"
+            + (f" – {event['end_at']}" if event["end_at"] else "")
+        )
+
+        where_parts = [p for p in [event["address"], event["city"], event["state"], event["zip_code"]] if p]
+        if where_parts:
+            st.write(f"**Location:** {', '.join(where_parts)}")
+
+        if event["what_to_expect"]:
+            st.write(f"**What to expect:** {event['what_to_expect']}")
+
+        if event["what_to_bring"]:
+            st.write(f"**What to bring:** {event['what_to_bring']}")
+
+        if event["registration_notes"]:
+            st.info(event["registration_notes"])
+
+    st.divider()
+
+    with st.container(border=True):
+        st.subheader("Registration")
+
+        if st.session_state.user:
+            st.write("You are logged in and can register for this event.")
+            if st.button("Register for this event", key="register_from_event_view", use_container_width=True):
+                st.success("Registration feature coming soon.")
+        else:
+            st.warning("Log in or create an account to register for this event.")
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Login", key="login_from_event_view", use_container_width=True):
+                    set_page("Login")
+                    st.rerun()
+            with c2:
+                if st.button("Create account", key="create_account_from_event_view", use_container_width=True):
+                    set_page("Create Account")
+                    st.rerun()    
 
 
 def page_create_account() -> None:
@@ -251,6 +343,8 @@ def page_create_event() -> None:
 
     if submitted:
         try:
+            from community_fed_db import create_event
+
             start_at = f"{start_date.strftime('%Y-%m-%d')} {start_time.strftime('%H:%M')}"
             end_at = f"{end_date.strftime('%Y-%m-%d')} {end_time.strftime('%H:%M')}"
 
@@ -299,10 +393,10 @@ def main() -> None:
 
     elif st.session_state.page == "Login":
         page_login()
-
     elif st.session_state.page == "Create Event":
         page_create_event()
-
+    elif st.session_state.page == "View Event":
+        page_view_event()
     else:
         set_page("Home")
         st.rerun()
@@ -311,4 +405,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
