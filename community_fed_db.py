@@ -251,6 +251,53 @@ def get_upcoming_events(
     finally:
         conn.close()
 
+def create_event(
+    *,
+    title: str,
+    organizer: str,
+    start_at: str,
+    end_at: Optional[str] = None,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+    what_to_expect: str = "",
+    what_to_bring: str = "",
+    registration_notes: str = "",
+) -> None:
+    title = title.strip()
+    organizer = organizer.strip()
+    address = address.strip()
+    city = city.strip()
+    state = state.strip()
+    zip_code = zip_code.strip()
+    what_to_expect = what_to_expect.strip()
+    what_to_bring = what_to_bring.strip()
+    registration_notes = registration_notes.strip()
+
+    if not title:
+        raise ValueError("Event title is required.")
+    if not start_at:
+        raise ValueError("Start date/time is required.")
+
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO events
+            (title, organizer, start_at, end_at, address, city, state, zip_code,
+             what_to_expect, what_to_bring, registration_notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                title, organizer, start_at, end_at, address, city, state, zip_code,
+                what_to_expect, what_to_bring, registration_notes,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
 
 def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
     conn = get_conn()
@@ -268,20 +315,19 @@ def get_event_by_id(event_id: int) -> Optional[sqlite3.Row]:
 
 
 def update_event(
-    event_id: int,
-    title: str,
-    organizer: str,
-    start_at: str,
-    end_at: str,
-    address: str,
-    city: str,
-    state: str,
-    zip_code: str,
-    what_to_expect: str,
-    what_to_bring: str,
-    registration_notes: str,
+        event_id: int,
+        title: str,
+        organizer: str,
+        start_at: str,
+        end_at: str,
+        address: str,
+        city: str,
+        state: str,
+        zip_code: str,
+        what_to_expect: str,
+        what_to_bring: str,
+        registration_notes: str,
 ) -> None:
-
     conn = get_conn()
 
     try:
@@ -289,18 +335,18 @@ def update_event(
             """
             UPDATE events
             SET
-                title=?,
-                organizer=?,
-                start_at=?,
-                end_at=?,
-                address=?,
-                city=?,
-                state=?,
-                zip_code=?,
-                what_to_expect=?,
-                what_to_bring=?,
-                registration_notes=?
-            WHERE id=?;
+                title = ?,
+                organizer = ?,
+                start_at = ?,
+                end_at = ?,
+                address = ?,
+                city = ?,
+                state = ?,
+                zip_code = ?,
+                what_to_expect = ?,
+                what_to_bring = ?,
+                registration_notes = ?
+            WHERE id = ?;
             """,
             (
                 title,
@@ -317,8 +363,6 @@ def update_event(
                 event_id,
             ),
         )
-
         conn.commit()
-
     finally:
         conn.close()

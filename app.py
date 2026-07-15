@@ -2,7 +2,13 @@
 from __future__ import annotations
 
 import streamlit as st
-from community_fed_db import init_db, create_user, verify_login, get_upcoming_events,  get_event_by_id
+from community_fed_db import (
+    init_db,
+    create_user,
+    verify_login,
+    get_upcoming_events,
+    get_event_by_id,
+)
 
 APP_NAME = "Community Fed"
 
@@ -100,6 +106,12 @@ def page_home() -> None:
     if st.session_state.user:
         u = st.session_state.user
         st.success(f"Logged in as {u['first_name']} {u['last_name']} ({u['email']})")
+
+        c1, c2, c3 = st.columns([2, 1, 2])
+        with c2:
+            if st.button("Create Event", use_container_width=True):
+                set_page("Create Event")
+                st.rerun()
     else:
         c1, c2, c3 = st.columns([2, 1, 2])
         with c2:
@@ -282,6 +294,83 @@ def page_login() -> None:
         set_page("Home")
         st.rerun()
 
+def page_create_event() -> None:
+    if st.button("← Back to Home"):
+        set_page("Home")
+        st.rerun()
+
+    st.header("Create event")
+
+    if not st.session_state.user:
+        st.warning("Please log in to create an event.")
+        c1, c2, c3 = st.columns([2, 1, 2])
+        with c2:
+            if st.button("Go to Login", use_container_width=True):
+                set_page("Login")
+                st.rerun()
+        return
+
+    with st.form("create_event_form", clear_on_submit=True):
+        title = st.text_input("Event title")
+        organizer = st.text_input("Organizer")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            start_date = st.date_input("Start date")
+        with c2:
+            start_time = st.time_input("Start time")
+
+        c3, c4 = st.columns(2)
+        with c3:
+            end_date = st.date_input("End date")
+        with c4:
+            end_time = st.time_input("End time")
+
+        address = st.text_input("Address")
+        c5, c6, c7 = st.columns([2, 1, 1])
+        with c5:
+            city = st.text_input("City")
+        with c6:
+            state = st.text_input("State")
+        with c7:
+            zip_code = st.text_input("ZIP code")
+
+        what_to_expect = st.text_area("What to expect")
+        what_to_bring = st.text_area("What to bring")
+        registration_notes = st.text_area("Registration notes")
+
+        submitted = st.form_submit_button("Create event")
+
+    if submitted:
+        try:
+            from community_fed_db import create_event
+
+            start_at = f"{start_date.strftime('%Y-%m-%d')} {start_time.strftime('%H:%M')}"
+            end_at = f"{end_date.strftime('%Y-%m-%d')} {end_time.strftime('%H:%M')}"
+
+            create_event(
+                title=title,
+                organizer=organizer,
+                start_at=start_at,
+                end_at=end_at,
+                address=address,
+                city=city,
+                state=state,
+                zip_code=zip_code,
+                what_to_expect=what_to_expect,
+                what_to_bring=what_to_bring,
+                registration_notes=registration_notes,
+            )
+
+            st.success("Event created successfully.")
+            if st.button("Return Home", use_container_width=True):
+                set_page("Home")
+                st.rerun()
+
+        except ValueError as e:
+            st.error(str(e))
+        except Exception:
+            st.error("Something went wrong while creating the event.")
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout="centered")
@@ -301,13 +390,17 @@ def main() -> None:
             set_page("Home")
             st.rerun()
         page_create_account()
+
     elif st.session_state.page == "Login":
         page_login()
+    elif st.session_state.page == "Create Event":
+        page_create_event()
     elif st.session_state.page == "View Event":
         page_view_event()
     else:
         set_page("Home")
         st.rerun()
+
 
 
 if __name__ == "__main__":

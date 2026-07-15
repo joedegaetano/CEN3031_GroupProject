@@ -35,9 +35,14 @@ The first time you save a record, the app will create a local SQLite database fi
 python smoke_test.py
 ```
 
-## Suggested next steps
+## Run the tests
 
-- Add more tables and database functions in `database.py`
-- Replace the starter form with your real application fields
-- Split the UI into additional Streamlit pages as the app grows
+`unit_tests.py` and `test_app.py` are `pytest` test suites, so run them with `pytest` from the project root:
+
+```zsh
+python3 -m pip install -r requirements.txt
+python3 -m pytest -q unit_tests.py test_app.py
+```
+
+If you run either test file with `streamlit run`, Streamlit will open a browser tab, but the page will be blank because those files only define tests—they are not Streamlit apps. Use `streamlit run app.py` only for the actual application.
 
