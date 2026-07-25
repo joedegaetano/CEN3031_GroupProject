@@ -149,6 +149,42 @@ def get_user_by_email(email: str) -> Optional[sqlite3.Row]:
     finally:
         conn.close()
 
+def get_user_by_id(user_id: int) -> Optional[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            "SELECT * FROM users WHERE id = ? LIMIT 1;",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+def update_user(user_id: int, first_name: str, last_name: str, email: str) -> None:
+    first_name = first_name.strip()
+    last_name = last_name.strip()
+    email = email.strip().lower()
+
+    if not is_valid_email(email):
+        raise ValueError("Please enter a valid email address.")
+
+    if not first_name or not last_name:
+        raise ValueError("First and last name are required.")
+
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            UPDATE users
+            SET first_name = ?, last_name = ?, email = ?
+            WHERE id = ?;
+            """,
+            (first_name, last_name, email, user_id),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise ValueError("An account with that email already exists.")
+    finally:
+        conn.close()
 
 def verify_login(email: str, password: str) -> Optional[dict]:
     user = get_user_by_email(email)
