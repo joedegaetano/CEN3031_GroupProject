@@ -1,6 +1,8 @@
 # app.py
 from __future__ import annotations
 
+import datetime as _dt
+
 import streamlit as st
 from community_fed_db import (
     init_db,
@@ -8,6 +10,15 @@ from community_fed_db import (
     verify_login,
     get_upcoming_events,
     get_event_by_id,
+    get_events_by_organizer,
+    get_registered_events,
+    register_for_event,
+    is_registered,
+    cancel_registration,
+    delete_event,
+    update_event,
+    count_events,
+    count_upcoming_registered,
 )
 
 APP_NAME = "Community Fed"
@@ -24,10 +35,16 @@ def do_logout() -> None:
 
 
 def render_top_bar() -> None:
-    left, _, right = st.columns([6, 3, 2], vertical_alignment="center")
+    left, _, mid, right = st.columns([5, 2, 2, 2], vertical_alignment="center")
 
     with left:
         st.markdown(f"## {APP_NAME}")
+
+    with mid:
+        if st.session_state.user:
+            if st.button("Dashboard", use_container_width=True):
+                set_page("Dashboard")
+                st.rerun()
 
     with right:
         if st.session_state.user:
@@ -199,9 +216,18 @@ def page_view_event() -> None:
         st.subheader("Registration")
 
         if st.session_state.user:
-            st.write("You are logged in and can register for this event.")
-            if st.button("Register for this event", key="register_from_event_view", use_container_width=True):
-                st.success("Registration feature coming soon.")
+            user_id = st.session_state.user["id"]
+            if is_registered(user_id, event["id"]):
+                st.success("You're registered for this event.")
+                if st.button("Cancel registration", key="cancel_from_event_view", use_container_width=True):
+                    cancel_registration(user_id, event["id"])
+                    st.rerun()
+            else:
+                st.write("You are logged in and can register for this event.")
+                if st.button("Register for this event", key="register_from_event_view", use_container_width=True):
+                    register_for_event(user_id, event["id"])
+                    st.success("You're registered for this event.")
+                    st.rerun()
         else:
             st.warning("Log in or create an account to register for this event.")
 
@@ -360,6 +386,7 @@ def page_create_event() -> None:
                 what_to_expect=what_to_expect,
                 what_to_bring=what_to_bring,
                 registration_notes=registration_notes,
+                created_by=st.session_state.user["id"],
             )
 
             st.success("Event created successfully.")
@@ -371,6 +398,189 @@ def page_create_event() -> None:
             st.error(str(e))
         except Exception:
             st.error("Something went wrong while creating the event.")
+
+
+def page_modify_event() -> None:
+    if st.button("← Back to Dashboard", key="modify_back"):
+        set_page("Dashboard")
+        st.rerun()
+
+    if not st.session_state.user:
+        st.warning("Please log in to modify events.")
+        return
+
+    event_id = st.session_state.get("selected_event")
+    if not event_id:
+        st.error("No event selected to modify.")
+        return
+
+    event = get_event_by_id(event_id)
+    if not event:
+        st.error("This event could not be found.")
+        return
+
+    st.header("Modify event")
+
+    start_dt = _dt.datetime.strptime(event["start_at"], "%Y-%m-%d %H:%M")
+    end_dt = (
+        _dt.datetime.strptime(event["end_at"], "%Y-%m-%d %H:%M")
+        if event["end_at"]
+        else start_dt
+    )
+
+    with st.form("modify_event_form", clear_on_submit=False):
+        title = st.text_input("Event title", value=event["title"])
+        organizer = st.text_input("Organizer", value=event["organizer"] or "")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            start_date = st.date_input("Start date", value=start_dt.date())
+        with c2:
+            start_time = st.time_input("Start time", value=start_dt.time())
+
+        c3, c4 = st.columns(2)
+        with c3:
+            end_date = st.date_input("End date", value=end_dt.date())
+        with c4:
+            end_time = st.time_input("End time", value=end_dt.time())
+
+        address = st.text_input("Address", value=event["address"] or "")
+        c5, c6, c7 = st.columns([2, 1, 1])
+        with c5:
+            city = st.text_input("City", value=event["city"] or "")
+        with c6:
+            state = st.text_input("State", value=event["state"] or "")
+        with c7:
+            zip_code = st.text_input("ZIP code", value=event["zip_code"] or "")
+
+        what_to_expect = st.text_area("What to expect", value=event["what_to_expect"] or "")
+        what_to_bring = st.text_area("What to bring", value=event["what_to_bring"] or "")
+        registration_notes = st.text_area("Registration notes", value=event["registration_notes"] or "")
+
+        submitted = st.form_submit_button("Save changes")
+
+    if submitted:
+        try:
+            start_at = f"{start_date.strftime('%Y-%m-%d')} {start_time.strftime('%H:%M')}"
+            end_at = f"{end_date.strftime('%Y-%m-%d')} {end_time.strftime('%H:%M')}"
+
+            update_event(
+                event_id,
+                title,
+                organizer,
+                start_at,
+                end_at,
+                address,
+                city,
+                state,
+                zip_code,
+                what_to_expect,
+                what_to_bring,
+                registration_notes,
+            )
+
+            st.success("Event updated.")
+            if st.button("Back to Dashboard", key="modify_done_back", use_container_width=True):
+                set_page("Dashboard")
+                st.rerun()
+
+        except ValueError as e:
+            st.error(str(e))
+        except Exception:
+            st.error("Something went wrong while updating the event.")
+
+
+def page_dashboard() -> None:
+    if not st.session_state.user:
+        st.warning("Please log in to view your dashboard.")
+        c1, c2, c3 = st.columns([2, 1, 2])
+        with c2:
+            if st.button("Go to Login", use_container_width=True, key="dash_login"):
+                set_page("Login")
+                st.rerun()
+        return
+
+    user = st.session_state.user
+
+    st.header("My Dashboard")
+    st.caption(f"Welcome back, {user['first_name']}.")
+
+    my_events = get_events_by_organizer(user["id"])
+    my_registrations = get_registered_events(user["id"])
+
+    # Quick stats
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Events you've created", len(my_events))
+    with c2:
+        st.metric("Upcoming registrations", count_upcoming_registered(user["id"]))
+    with c3:
+        st.metric("Total events on Community Fed", count_events())
+
+    st.divider()
+
+    # My Events
+    st.subheader("My Events")
+    if not my_events:
+        st.info("You haven't created any events yet.")
+        if st.button("Create an event", use_container_width=True, key="dash_create_event"):
+            set_page("Create Event")
+            st.rerun()
+    else:
+        for e in my_events:
+            with st.container(border=True):
+                st.markdown(f"**{e['title']}**")
+
+                meta = [f"When: {e['start_at']}" + (f" – {e['end_at']}" if e["end_at"] else "")]
+                where_parts = [p for p in [e["address"], e["city"], e["state"], e["zip_code"]] if p]
+                if where_parts:
+                    meta.append("Where: " + ", ".join(where_parts))
+                st.caption(" • ".join(meta))
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("Edit", key=f"dash_edit_{e['id']}", use_container_width=True):
+                        st.session_state.selected_event = e["id"]
+                        set_page("Modify Event")
+                        st.rerun()
+                with c2:
+                    confirm_key = f"confirm_delete_{e['id']}"
+                    if st.session_state.get(confirm_key):
+                        cc1, cc2 = st.columns(2)
+                        with cc1:
+                            if st.button("Confirm delete", key=f"dash_confirm_delete_{e['id']}", use_container_width=True):
+                                delete_event(e["id"])
+                                st.session_state[confirm_key] = False
+                                st.success("Event deleted.")
+                                st.rerun()
+                        with cc2:
+                            if st.button("Cancel", key=f"dash_cancel_delete_{e['id']}", use_container_width=True):
+                                st.session_state[confirm_key] = False
+                                st.rerun()
+                    else:
+                        if st.button("Delete", key=f"dash_delete_{e['id']}", use_container_width=True):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+
+    st.divider()
+
+    # My Registrations
+    st.subheader("My Registrations")
+    if not my_registrations:
+        st.info("You haven't registered for any events yet.")
+        if st.button("Browse events", use_container_width=True, key="dash_browse_events"):
+            set_page("Home")
+            st.rerun()
+    else:
+        for e in my_registrations:
+            with st.container(border=True):
+                st.markdown(f"**{e['title']}**")
+                st.caption(f"When: {e['start_at']}" + (f" – {e['end_at']}" if e["end_at"] else ""))
+                if st.button("Cancel registration", key=f"dash_cancel_reg_{e['id']}", use_container_width=True):
+                    cancel_registration(user["id"], e["id"])
+                    st.success("Registration cancelled.")
+                    st.rerun()
+
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout="centered")
@@ -397,6 +607,10 @@ def main() -> None:
         page_create_event()
     elif st.session_state.page == "View Event":
         page_view_event()
+    elif st.session_state.page == "Modify Event":
+        page_modify_event()
+    elif st.session_state.page == "Dashboard":
+        page_dashboard()
     else:
         set_page("Home")
         st.rerun()
