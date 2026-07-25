@@ -69,6 +69,19 @@ def init_db() -> None:
                 ADD COLUMN created_by INTEGER REFERENCES users(id);
                 """
             )
+
+        # Event registrations (dashboard: "My Registrations")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_registrations (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id      INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                registered_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(event_id, user_id)
+            );
+            """
+        )
         conn.commit()
     finally:
         conn.close()
@@ -264,6 +277,7 @@ def create_event(
     what_to_expect: str = "",
     what_to_bring: str = "",
     registration_notes: str = "",
+    created_by: Optional[int] = None,
 ) -> None:
     title = title.strip()
     organizer = organizer.strip()
@@ -286,12 +300,12 @@ def create_event(
             """
             INSERT INTO events
             (title, organizer, start_at, end_at, address, city, state, zip_code,
-             what_to_expect, what_to_bring, registration_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+             what_to_expect, what_to_bring, registration_notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 title, organizer, start_at, end_at, address, city, state, zip_code,
-                what_to_expect, what_to_bring, registration_notes,
+                what_to_expect, what_to_bring, registration_notes, created_by,
             ),
         )
         conn.commit()
@@ -364,5 +378,113 @@ def update_event(
             ),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_event(event_id: int) -> None:
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM events WHERE id = ?;", (event_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def count_events() -> int:
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT COUNT(1) AS c FROM events;").fetchone()
+        return int(row["c"]) if row and row["c"] else 0
+    finally:
+        conn.close()
+
+
+def get_events_by_organizer(user_id: int) -> List[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT *
+            FROM events
+            WHERE created_by = ?
+            ORDER BY datetime(start_at) ASC;
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+# ---------------------------
+# Registrations
+# ---------------------------
+
+def register_for_event(user_id: int, event_id: int) -> None:
+    conn = get_conn()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO event_registrations (event_id, user_id) VALUES (?, ?);",
+            (event_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def is_registered(user_id: int, event_id: int) -> bool:
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM event_registrations WHERE event_id = ? AND user_id = ? LIMIT 1;",
+            (event_id, user_id),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
+def cancel_registration(user_id: int, event_id: int) -> None:
+    conn = get_conn()
+    try:
+        conn.execute(
+            "DELETE FROM event_registrations WHERE event_id = ? AND user_id = ?;",
+            (event_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_registered_events(user_id: int) -> List[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT e.*
+            FROM events e
+            JOIN event_registrations r ON r.event_id = e.id
+            WHERE r.user_id = ?
+            ORDER BY datetime(e.start_at) ASC;
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def count_upcoming_registered(user_id: int) -> int:
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            """
+            SELECT COUNT(1) AS c
+            FROM event_registrations r
+            JOIN events e ON e.id = r.event_id
+            WHERE r.user_id = ? AND datetime(e.start_at) >= datetime('now');
+            """,
+            (user_id,),
+        ).fetchone()
+        return int(row["c"]) if row and row["c"] else 0
     finally:
         conn.close()
