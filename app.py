@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import profile
 
 import streamlit as st
 from community_fed_db import (
@@ -17,6 +18,8 @@ from community_fed_db import (
     cancel_registration,
     delete_event,
     update_event,
+    get_user_by_id,
+    update_user,
     count_events,
     count_upcoming_registered,
 )
@@ -35,7 +38,7 @@ def do_logout() -> None:
 
 
 def render_top_bar() -> None:
-    left, _, mid, right = st.columns([5, 2, 2, 2], vertical_alignment="center")
+    left, mid, profile, right = st.columns([6, 2, 2, 2], vertical_alignment="center")
 
     with left:
         st.markdown(f"## {APP_NAME}")
@@ -44,6 +47,12 @@ def render_top_bar() -> None:
         if st.session_state.user:
             if st.button("Dashboard", use_container_width=True):
                 set_page("Dashboard")
+                st.rerun()
+
+    with profile:
+        if st.session_state.user:
+            if st.button("Profile", use_container_width=True):
+                set_page("Profile")
                 st.rerun()
 
     with right:
@@ -581,6 +590,66 @@ def page_dashboard() -> None:
                     st.success("Registration cancelled.")
                     st.rerun()
 
+def page_profile() -> None:
+    if not st.session_state.user:
+        st.warning("Please log in to view your profile.")
+        c1, c2, c3 = st.columns([2, 1, 2])
+        with c2:
+            if st.button("Go to Login", use_container_width=True):
+                set_page("Login")
+                st.rerun()
+        return
+
+    user = get_user_by_id(st.session_state.user["id"])
+
+    st.header("My Profile")
+    st.caption("View and update your account information.")
+
+    with st.form("profile_form"):
+        first_name = st.text_input(
+            "First Name",
+            value=user["first_name"],
+        )
+
+        last_name = st.text_input(
+            "Last Name",
+            value=user["last_name"],
+        )
+
+        email = st.text_input(
+            "Email",
+            value=user["email"],
+        )
+
+        submitted = st.form_submit_button("Save Changes")
+
+    if submitted:
+        try:
+            update_user(
+                user["id"],
+                first_name,
+                last_name,
+                email,
+            )
+
+            st.session_state.user = {
+                "id": user["id"],
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+            }
+
+            st.success("Profile updated successfully.")
+            st.rerun()
+
+        except ValueError as e:
+            st.error(str(e))
+
+    st.divider()
+
+    if st.button("Return to Dashboard", use_container_width=True):
+        set_page("Dashboard")
+        st.rerun()
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout="centered")
@@ -611,6 +680,8 @@ def main() -> None:
         page_modify_event()
     elif st.session_state.page == "Dashboard":
         page_dashboard()
+    elif st.session_state.page == "Profile":
+        page_profile()
     else:
         set_page("Home")
         st.rerun()
