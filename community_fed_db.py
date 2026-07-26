@@ -80,6 +80,18 @@ def init_db() -> None:
                 registered_at TEXT NOT NULL DEFAULT (datetime('now')),
                 UNIQUE(event_id, user_id)
             );
+            """    
+        )
+        # Favorite food pantries/events
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS favorites (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(user_id, event_id)
+            );
             """
         )
         conn.commit()
@@ -522,5 +534,71 @@ def count_upcoming_registered(user_id: int) -> int:
             (user_id,),
         ).fetchone()
         return int(row["c"]) if row and row["c"] else 0
+    finally:
+        conn.close()
+
+# ---------------------------
+# Favorites
+# ---------------------------
+
+def add_favorite(user_id: int, event_id: int) -> None:
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO favorites (user_id, event_id)
+            VALUES (?, ?);
+            """,
+            (user_id, event_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def is_favorite(user_id: int, event_id: int) -> bool:
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM favorites
+            WHERE user_id = ? AND event_id = ?
+            LIMIT 1;
+            """,
+            (user_id, event_id),
+        ).fetchone()
+
+        return row is not None
+    finally:
+        conn.close()
+
+def remove_favorite(user_id: int, event_id: int) -> None:
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            DELETE FROM favorites
+            WHERE user_id = ? AND event_id = ?;
+            """,
+            (user_id, event_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_favorite_events(user_id: int) -> List[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT e.*
+            FROM events e
+            JOIN favorites f
+                ON e.id = f.event_id
+            WHERE f.user_id = ?
+            ORDER BY datetime(e.start_at) ASC;
+            """,
+            (user_id,),
+        ).fetchall()
     finally:
         conn.close()

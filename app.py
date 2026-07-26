@@ -1,8 +1,6 @@
-# app.py
 from __future__ import annotations
 
 import datetime as _dt
-import profile
 
 import streamlit as st
 from community_fed_db import (
@@ -22,6 +20,10 @@ from community_fed_db import (
     update_user,
     count_events,
     count_upcoming_registered,
+    add_favorite,
+    remove_favorite,
+    is_favorite,
+    get_favorite_events,
 )
 
 APP_NAME = "Community Fed"
@@ -38,12 +40,17 @@ def do_logout() -> None:
 
 
 def render_top_bar() -> None:
-    left, mid, profile, right = st.columns([6, 2, 2, 2], vertical_alignment="center")
+    left, home, dashboard, profile, right = st.columns([4, 2, 2, 2, 2], vertical_alignment="center")
 
     with left:
         st.markdown(f"## {APP_NAME}")
 
-    with mid:
+    with home:
+        if st.button("Home", use_container_width=True):
+            set_page("Home")
+            st.rerun()
+
+    with dashboard:
         if st.session_state.user:
             if st.button("Dashboard", use_container_width=True):
                 set_page("Dashboard")
@@ -89,12 +96,25 @@ def render_event_card(e) -> None:
 
         if e["registration_notes"]:
             st.info(e["registration_notes"])
-        # Show edit button for logged in users
+        # Show edit/favorite button for logged in users
+        
         if st.session_state.user:
-            if st.button("Edit Event", key=f"edit_{e['id']}"):
-                st.session_state.selected_event = e["id"]
-                set_page("Modify Event")
-                st.rerun()
+
+            if e["created_by"] == st.session_state.user["id"]:
+                if st.button("Edit Event", key=f"edit_{e['id']}"):
+                    st.session_state.selected_event = e["id"]
+                    set_page("Modify Event")
+                    st.rerun()
+
+            if is_favorite(st.session_state.user["id"], e["id"]):
+                if st.button("★ Remove Favorite", key=f"unfavorite_{e['id']}"):
+                    remove_favorite(st.session_state.user["id"], e["id"])
+                    st.rerun()
+
+            else:
+                if st.button("☆ Add Favorite", key=f"favorite_{e['id']}"):
+                    add_favorite(st.session_state.user["id"], e["id"])
+                    st.rerun()
 
         if st.button("View event details", key=f"view_event_{e['id']}", use_container_width=True):
             st.session_state.selected_event_id = e["id"]
@@ -589,6 +609,18 @@ def page_dashboard() -> None:
                     cancel_registration(user["id"], e["id"])
                     st.success("Registration cancelled.")
                     st.rerun()
+    # My Favorites
+    st.divider()
+
+    st.subheader("My Favorites")
+
+    favorites = get_favorite_events(st.session_state.user["id"])
+
+    if not favorites:
+        st.info("You haven't favorited any events yet.")
+    else:
+        for e in favorites:
+            render_event_card(e)
 
 def page_profile() -> None:
     if not st.session_state.user:
