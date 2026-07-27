@@ -43,6 +43,24 @@ def db(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         verify_login=Mock(name="verify_login", return_value=None),
         get_upcoming_events=Mock(name="get_upcoming_events", return_value=[]),
         get_event_by_id=Mock(name="get_event_by_id", return_value=None),
+        get_events_by_organizer=Mock(name="get_events_by_organizer", return_value=[]),
+        get_registered_events=Mock(name="get_registered_events", return_value=[]),
+        register_for_event=Mock(name="register_for_event"),
+        is_registered=Mock(name="is_registered", return_value=False),
+        cancel_registration=Mock(name="cancel_registration"),
+        delete_event=Mock(name="delete_event"),
+        update_event=Mock(name="update_event"),
+        get_user_by_id=Mock(name="get_user_by_id", return_value=None),
+        update_user=Mock(name="update_user"),
+        count_events=Mock(name="count_events", return_value=0),
+        count_upcoming_registered=Mock(name="count_upcoming_registered", return_value=0),
+        add_favorite=Mock(name="add_favorite"),
+        remove_favorite=Mock(name="remove_favorite"),
+        is_favorite=Mock(name="is_favorite", return_value=False),
+        get_favorite_events=Mock(name="get_favorite_events", return_value=[]),
+        create_event=Mock(name="create_event"),
+        get_pending_events=Mock(name="get_pending_events", return_value=[]),
+        set_event_approval_status=Mock(name="set_event_approval_status"),
     )
 
     fake_database_module = ModuleType("community_fed_db")
@@ -51,6 +69,24 @@ def db(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     fake_database_module.verify_login = mocks.verify_login
     fake_database_module.get_upcoming_events = mocks.get_upcoming_events
     fake_database_module.get_event_by_id = mocks.get_event_by_id
+    fake_database_module.get_events_by_organizer = mocks.get_events_by_organizer
+    fake_database_module.get_registered_events = mocks.get_registered_events
+    fake_database_module.register_for_event = mocks.register_for_event
+    fake_database_module.is_registered = mocks.is_registered
+    fake_database_module.cancel_registration = mocks.cancel_registration
+    fake_database_module.delete_event = mocks.delete_event
+    fake_database_module.update_event = mocks.update_event
+    fake_database_module.get_user_by_id = mocks.get_user_by_id
+    fake_database_module.update_user = mocks.update_user
+    fake_database_module.count_events = mocks.count_events
+    fake_database_module.count_upcoming_registered = mocks.count_upcoming_registered
+    fake_database_module.add_favorite = mocks.add_favorite
+    fake_database_module.remove_favorite = mocks.remove_favorite
+    fake_database_module.is_favorite = mocks.is_favorite
+    fake_database_module.get_favorite_events = mocks.get_favorite_events
+    fake_database_module.create_event = mocks.create_event
+    fake_database_module.get_pending_events = mocks.get_pending_events
+    fake_database_module.set_event_approval_status = mocks.set_event_approval_status
 
     monkeypatch.setitem(sys.modules, "community_fed_db", fake_database_module)
     return mocks

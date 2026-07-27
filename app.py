@@ -24,10 +24,13 @@ from community_fed_db import (
     remove_favorite,
     is_favorite,
     get_favorite_events,
+    create_event,
+    get_pending_events,
+    set_event_approval_status,
 )
 
 APP_NAME = "Community Fed"
-
+ADMIN_EMAILS = {"admin@communityfed.com"}
 
 def set_page(page: str) -> None:
     st.session_state.page = page
@@ -38,9 +41,16 @@ def do_logout() -> None:
     set_page("Home")
     st.rerun()
 
+def is_admin() -> bool:
+    user = st.session_state.get("user")
+    return bool(user and user["email"].lower() in ADMIN_EMAILS)    
+
 
 def render_top_bar() -> None:
-    left, home, dashboard, profile, right = st.columns([4, 2, 2, 2, 2], vertical_alignment="center")
+    left, home, dashboard, manage, profile, right = st.columns(
+        [4, 2, 2, 2, 2, 2],
+        vertical_alignment="center",
+    )
 
     with left:
         st.markdown(f"## {APP_NAME}")
@@ -49,11 +59,16 @@ def render_top_bar() -> None:
         if st.button("Home", use_container_width=True):
             set_page("Home")
             st.rerun()
-
     with dashboard:
         if st.session_state.user:
             if st.button("Dashboard", use_container_width=True):
                 set_page("Dashboard")
+                st.rerun()
+
+    with manage:
+        if st.session_state.user:
+            if st.button("Manage Events", use_container_width=True):
+                set_page("Manage Events")
                 st.rerun()
 
     with profile:
@@ -97,9 +112,7 @@ def render_event_card(e) -> None:
         if e["registration_notes"]:
             st.info(e["registration_notes"])
         # Show edit/favorite button for logged in users
-        
         if st.session_state.user:
-
             if e["created_by"] == st.session_state.user["id"]:
                 if st.button("Edit Event", key=f"edit_{e['id']}"):
                     st.session_state.selected_event = e["id"]
@@ -113,13 +126,14 @@ def render_event_card(e) -> None:
 
             else:
                 if st.button("☆ Add Favorite", key=f"favorite_{e['id']}"):
-                    add_favorite(st.session_state.user["id"], e["id"])
-                    st.rerun()
+                   add_favorite(st.session_state.user["id"], e["id"])
+                   st.rerun()
 
         if st.button("View event details", key=f"view_event_{e['id']}", use_container_width=True):
-            st.session_state.selected_event_id = e["id"]
-            set_page("View Event")
-            st.rerun()
+           st.session_state.selected_event_id = e["id"]
+           st.session_state.event_return_page = "Home"
+           set_page("View Event")
+           st.rerun()
 
 
 def page_home() -> None:
@@ -190,11 +204,12 @@ def page_home() -> None:
 
 def page_view_event() -> None:
     event_id = st.session_state.get("selected_event_id")
+    return_page = st.session_state.get("event_return_page", "Home")
 
     if not event_id:
         st.error("No event selected.")
         if st.button("Back to events", key="back_no_event_selected"):
-            set_page("Home")
+            set_page(return_page)
             st.rerun()
         return
 
@@ -203,12 +218,12 @@ def page_view_event() -> None:
     if not event:
         st.error("This event could not be found.")
         if st.button("Back to events", key="back_from_event_not_found"):
-            set_page("Home")
+            set_page(return_page)
             st.rerun()
         return
 
     if st.button("← Back to events", key="back_to_events_from_view"):
-        set_page("Home")
+        set_page(return_page)
         st.rerun()
 
     st.header(event["title"])
@@ -398,7 +413,7 @@ def page_create_event() -> None:
 
     if submitted:
         try:
-            from community_fed_db import create_event
+            
 
             start_at = f"{start_date.strftime('%Y-%m-%d')} {start_time.strftime('%H:%M')}"
             end_at = f"{end_date.strftime('%Y-%m-%d')} {end_time.strftime('%H:%M')}"
@@ -418,7 +433,7 @@ def page_create_event() -> None:
                 created_by=st.session_state.user["id"],
             )
 
-            st.success("Event created successfully.")
+            st.success("Event submitted for approval.")
             if st.button("Return Home", use_container_width=True):
                 set_page("Home")
                 st.rerun()
@@ -430,8 +445,8 @@ def page_create_event() -> None:
 
 
 def page_modify_event() -> None:
-    if st.button("← Back to Dashboard", key="modify_back"):
-        set_page("Dashboard")
+    if st.button("← Back to Manage Events", key="modify_back"):
+        set_page("Manage Events")
         st.rerun()
 
     if not st.session_state.user:
@@ -448,11 +463,21 @@ def page_modify_event() -> None:
         st.error("This event could not be found.")
         return
 
+    if event["created_by"] != st.session_state.user["id"]:
+        st.error("You can only modify events that you created.")
+        return
+
     st.header("Modify event")
 
-    start_dt = _dt.datetime.strptime(event["start_at"], "%Y-%m-%d %H:%M")
+    start_dt = _dt.datetime.strptime(
+            event["start_at"],
+            "%Y-%m-%d %H:%M",
+    )
     end_dt = (
-        _dt.datetime.strptime(event["end_at"], "%Y-%m-%d %H:%M")
+        _dt.datetime.strptime(
+            event["end_at"],
+            "%Y-%m-%d %H:%M",
+        )
         if event["end_at"]
         else start_dt
     )
@@ -507,10 +532,14 @@ def page_modify_event() -> None:
                 what_to_bring,
                 registration_notes,
             )
+            st.success("Event updated and sent for approval.")
 
-            st.success("Event updated.")
-            if st.button("Back to Dashboard", key="modify_done_back", use_container_width=True):
-                set_page("Dashboard")
+            if st.button(
+                "Back to Manage Events",
+                 key="modify_done_back",
+                 use_container_width=True
+            ):
+                set_page("Manage Events")
                 st.rerun()
 
         except ValueError as e:
@@ -622,6 +651,146 @@ def page_dashboard() -> None:
         for e in favorites:
             render_event_card(e)
 
+def page_manage_events() -> None:
+    if not st.session_state.user:
+        st.warning("Please log in to manage events.")
+        return
+
+    user = st.session_state.user
+    st.header("Manage Events")
+
+    if st.button("Create new event", use_container_width=True):
+        set_page("Create Event")
+        st.rerun()
+
+    if is_admin():
+        if st.button("Review pending events", use_container_width=True):
+            set_page("Admin")
+            st.rerun()
+
+    events = get_events_by_organizer(user["id"])
+
+    if not events:
+        st.info("You have not created any events yet.")
+        return
+
+    for event in events:
+        with st.container(border=True):
+            st.subheader(event["title"])
+            st.write(f"Status: {event['approval_status'].title()}")
+            st.caption(
+                f"When: {event['start_at']}"
+                + (f" – {event['end_at']}" if event["end_at"] else "")
+            )
+
+            view_col, edit_col, delete_col = st.columns(3)
+
+            with view_col:
+                if st.button(
+                    "View",
+                    key=f"manage_view_{event['id']}",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_event_id = event["id"]
+                    st.session_state.event_return_page = "Manage Events"
+                    set_page("View Event")
+                    st.rerun()
+
+            with edit_col:
+                if st.button(
+                    "Edit",
+                    key=f"manage_edit_{event['id']}",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_event = event["id"]
+                    set_page("Modify Event")
+                    st.rerun()
+
+            with delete_col:
+                confirm_key = f"manage_confirm_delete_{event['id']}"
+
+                if st.session_state.get(confirm_key):
+                    if st.button(
+                        "Confirm",
+                        key=f"manage_confirm_{event['id']}",
+                        use_container_width=True,
+                    ):
+                        delete_event(event["id"])
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+
+                    if st.button(
+                        "Cancel",
+                        key=f"manage_cancel_{event['id']}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+                else:
+                    if st.button(
+                        "Delete",
+                        key=f"manage_delete_{event['id']}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[confirm_key] = True
+                        st.rerun()
+
+def page_admin() -> None:
+    if not is_admin():
+        st.error("You do not have access to this page.")
+        return
+
+    if st.button("← Back to Manage Events"):
+        set_page("Manage Events")
+        st.rerun()
+
+    st.header("Event Approval")
+    events = get_pending_events()
+
+    if not events:
+        st.info("There are no pending events.")
+        return
+
+    for event in events:
+        with st.container(border=True):
+            st.subheader(event["title"])
+            st.write(f"Organizer: {event['organizer'] or 'Not provided'}")
+            st.write(f"When: {event['start_at']}")
+
+            location = ", ".join(
+                part
+                for part in [
+                    event["address"],
+                    event["city"],
+                    event["state"],
+                    event["zip_code"],
+                ]
+                if part
+            )
+
+            if location:
+                st.write(f"Location: {location}")
+
+            approve_col, reject_col = st.columns(2)
+
+            with approve_col:
+                if st.button(
+                    "Approve",
+                    key=f"approve_{event['id']}",
+                    use_container_width=True,
+                ):
+                    set_event_approval_status(event["id"], "approved")
+                    st.rerun()
+
+            with reject_col:
+                if st.button(
+                    "Reject",
+                    key=f"reject_{event['id']}",
+                    use_container_width=True,
+                ):
+                    set_event_approval_status(event["id"], "rejected")
+                    st.rerun()
+
 def page_profile() -> None:
     if not st.session_state.user:
         st.warning("Please log in to view your profile.")
@@ -712,6 +881,10 @@ def main() -> None:
         page_modify_event()
     elif st.session_state.page == "Dashboard":
         page_dashboard()
+    elif st.session_state.page == "Manage Events":
+        page_manage_events()
+    elif st.session_state.page == "Admin":
+        page_admin()
     elif st.session_state.page == "Profile":
         page_profile()
     else:
