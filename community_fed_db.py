@@ -55,6 +55,7 @@ def init_db() -> None:
                 what_to_expect     TEXT,
                 what_to_bring      TEXT,
                 registration_notes TEXT,
+                approval_status    TEXT NOT NULL DEFAULT 'approved',
                 created_at         TEXT NOT NULL DEFAULT (datetime('now'))
             );
             """
@@ -69,6 +70,14 @@ def init_db() -> None:
                 ADD COLUMN created_by INTEGER REFERENCES users(id);
                 """
             )
+
+        if "approval_status" not in column_names:
+            conn.execute(
+            """
+            ALTER TABLE events
+            ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved';
+            """
+           )    
 
         # Event registrations (dashboard: "My Registrations")
         conn.execute(
@@ -282,6 +291,7 @@ def get_upcoming_events(
             SELECT *
             FROM events
             WHERE datetime(start_at) >= datetime('now')
+            AND approval_status = 'approved'
         """
         params: list = []
 
@@ -333,17 +343,27 @@ def create_event(
     conn = get_conn()
     try:
         conn.execute(
-            """
-            INSERT INTO events
-            (title, organizer, start_at, end_at, address, city, state, zip_code,
-             what_to_expect, what_to_bring, registration_notes, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """,
-            (
-                title, organizer, start_at, end_at, address, city, state, zip_code,
-                what_to_expect, what_to_bring, registration_notes, created_by,
-            ),
-        )
+    """
+    INSERT INTO events
+    (title, organizer, start_at, end_at, address, city, state, zip_code,
+     what_to_expect, what_to_bring, registration_notes, created_by, approval_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending');
+    """,
+    (
+        title,
+        organizer,
+        start_at,
+        end_at,
+        address,
+        city,
+        state,
+        zip_code,
+        what_to_expect,
+        what_to_bring,
+        registration_notes,
+        created_by,
+    ),
+)
         conn.commit()
     finally:
         conn.close()
@@ -395,7 +415,8 @@ def update_event(
                 zip_code = ?,
                 what_to_expect = ?,
                 what_to_bring = ?,
-                registration_notes = ?
+                registration_notes = ?,
+                approval_status = 'pending'
             WHERE id = ?;
             """,
             (
@@ -448,6 +469,35 @@ def get_events_by_organizer(user_id: int) -> List[sqlite3.Row]:
             """,
             (user_id,),
         ).fetchall()
+    finally:
+        conn.close()
+
+def get_pending_events() -> List[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute(
+            """
+            SELECT *
+            FROM events
+            WHERE approval_status = 'pending'
+            ORDER BY datetime(created_at) ASC;
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def set_event_approval_status(event_id: int, status: str) -> None:
+    if status not in {"approved", "rejected"}:
+        raise ValueError("Invalid approval status.")
+
+    conn = get_conn()
+    try:
+        conn.execute(
+            "UPDATE events SET approval_status = ? WHERE id = ?;",
+            (status, event_id),
+        )
+        conn.commit()
     finally:
         conn.close()
 
