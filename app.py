@@ -48,7 +48,7 @@ def is_admin() -> bool:
 
 def render_top_bar() -> None:
     left, home, dashboard, manage, profile, right = st.columns(
-        [4, 2, 2, 2, 2, 2],
+        [4, 2, 2.5, 2.5, 2, 2],
         vertical_alignment="center",
     )
 
